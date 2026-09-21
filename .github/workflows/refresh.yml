@@ -1,1 +1,58 @@
-bmFtZTogUmVmcmVzaCBkYXRhIGFuZCBkZXBsb3kKCm9uOgogIHNjaGVkdWxlOgogICAgIyBVVEMuIFRoZSBNYWtlIHNjcmFwZXJzIHJ1biBhdCA4OjAwIChJbmRlZWQpIGFuZCA5OjAwIChMaW5rZWRJbikgVG9yb250byB0aW1lLAogICAgIyBzbyB0aGVzZSBsYW5kIH4xLTJoIGFmdGVyLCBtaWQtYWZ0ZXJub29uLCBhbmQgZXZlbmluZy4gR2l0SHViIG1heSBmaXJlIHRoZW0gbGF0ZS4KICAgIC0gY3JvbjogJzAgMTQgKiAqIConCiAgICAtIGNyb246ICcwIDE3ICogKiAqJwogICAgLSBjcm9uOiAnMCAyMiAqICogKicKICBwdXNoOgogICAgYnJhbmNoZXM6IFttYWluXQogIHdvcmtmbG93X2Rpc3BhdGNoOiB7fQoKcGVybWlzc2lvbnM6CiAgY29udGVudHM6IHJlYWQKICBwYWdlczogd3JpdGUKICBpZC10b2tlbjogd3JpdGUKCmNvbmN1cnJlbmN5OgogIGdyb3VwOiBwYWdlcwogIGNhbmNlbC1pbi1wcm9ncmVzczogZmFsc2UKCmpvYnM6CiAgYnVpbGQtYW5kLWRlcGxveToKICAgIHJ1bnMtb246IHVidW50dS1sYXRlc3QKICAgIGVudmlyb25tZW50OgogICAgICBuYW1lOiBnaXRodWItcGFnZXMKICAgICAgdXJsOiAke3sgc3RlcHMuZGVwbG95bWVudC5vdXRwdXRzLnBhZ2VfdXJsIH19CiAgICBzdGVwczoKICAgICAgLSB1c2VzOiBhY3Rpb25zL2NoZWNrb3V0QHY0CgogICAgICAtIHVzZXM6IGFjdGlvbnMvc2V0dXAtcHl0aG9uQHY1CiAgICAgICAgd2l0aDoKICAgICAgICAgIHB5dGhvbi12ZXJzaW9uOiAnMy4xMScKCiAgICAgIC0gbmFtZTogSW5zdGFsbCBkZXBzCiAgICAgICAgcnVuOiBwaXAgaW5zdGFsbCBnb29nbGUtYXV0aCBnb29nbGUtYXBpLXB5dGhvbi1jbGllbnQKCiAgICAgIC0gbmFtZTogUmVidWlsZCBkYXRhLmpzb24gZnJvbSB0aGUgR29vZ2xlIFNoZWV0IChsYXN0IDMwIGRheXMpCiAgICAgICAgZW52OgogICAgICAgICAgR0NQX1NFUlZJQ0VfQUNDT1VOVF9KU09OOiAke3sgc2VjcmV0cy5HQ1BfU0VSVklDRV9BQ0NPVU5UX0pTT04gfX0KICAgICAgICAgIFNIRUVUX0lEOiAke3sgc2VjcmV0cy5KT0JTX1NIRUVUX0lEIH19CiAgICAgICAgICBEQVlTOiAnMzAnCiAgICAgICAgcnVuOiBweXRob24gc2NyaXB0cy9yZWZyZXNoX2RhdGEucHkKCiAgICAgIC0gbmFtZTogQXNzZW1ibGUgc2l0ZQogICAgICAgIHJ1bjogfAogICAgICAgICAgbWtkaXIgX3NpdGUKICAgICAgICAgIGNwIGluZGV4Lmh0bWwgZGF0YS5qc29uIF9zaXRlLwoKICAgICAgLSB1c2VzOiBhY3Rpb25zL2NvbmZpZ3VyZS1wYWdlc0B2NQoKICAgICAgLSB1c2VzOiBhY3Rpb25zL3VwbG9hZC1wYWdlcy1hcnRpZmFjdEB2MwogICAgICAgIHdpdGg6CiAgICAgICAgICBwYXRoOiBfc2l0ZQoKICAgICAgLSBpZDogZGVwbG95bWVudAogICAgICAgIHVzZXM6IGFjdGlvbnMvZGVwbG95LXBhZ2VzQHY0Cg==
+name: Refresh data and deploy
+
+on:
+  schedule:
+    # UTC. The Make scrapers run at 8:00 (Indeed) and 9:00 (LinkedIn) Toronto time,
+    # so these land ~1-2h after, mid-afternoon, and evening. GitHub may fire them late.
+    - cron: '0 14 * * *'
+    - cron: '0 17 * * *'
+    - cron: '0 22 * * *'
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install deps
+        run: pip install google-auth google-api-python-client
+
+      - name: Rebuild data.json from the Google Sheet (last 30 days)
+        env:
+          GCP_SERVICE_ACCOUNT_JSON: ${{ secrets.GCP_SERVICE_ACCOUNT_JSON }}
+          SHEET_ID: ${{ secrets.JOBS_SHEET_ID }}
+          DAYS: '30'
+        run: python scripts/refresh_data.py
+
+      - name: Assemble site
+        run: |
+          mkdir _site
+          cp index.html data.json _site/
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
