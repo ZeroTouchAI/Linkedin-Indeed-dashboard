@@ -102,7 +102,7 @@ select{background:var(--bg2);border:1px solid var(--line);color:var(--text);padd
 .chip.src{border-color:var(--rail);color:var(--rail)}
 .chip.dc{border-color:var(--led);color:var(--led)}
 .chip.new{background:var(--led);border-color:var(--led);color:#04170d;font-weight:700}
-.chip.scraped{color:var(--text-faint)}
+.chip.scraped{color:var(--text-faint);font-size:10.5px}
 .row-right{text-align:right;flex-shrink:0;font-family:var(--mono);font-size:12px;color:var(--text-dim);display:flex;flex-direction:column;gap:5px;align-items:flex-end}
 .salary{color:var(--led);font-weight:600;white-space:nowrap}
 .salary.none{color:var(--text-faint);font-weight:400}
@@ -274,12 +274,12 @@ function render(){
             ${r.type?`<span class="chip">${esc(r.type)}</span>`:''}
             ${r.dc?'<span class="chip dc">DC</span>':''}
             ${isNew(r)?'<span class="chip new">NEW</span>':''}
-            <span class="chip scraped">scraped ${fmt(r.scraped)}</span>
           </div>
         </div>
         <div class="row-right">
           <span>${esc(posted)}</span>
           <span class="salary ${r.salary?'':'none'}">${esc(r.salary||'salary n/a')}</span>
+          <span class="chip scraped">scraped ${fmt(r.scraped)}</span>
         </div>
       </div>
       <div class="row-body"><div class="expand-grid">
